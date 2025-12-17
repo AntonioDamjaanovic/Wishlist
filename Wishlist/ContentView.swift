@@ -6,19 +6,83 @@
 //
 
 import SwiftUI
+import SwiftData
 
 struct ContentView: View {
+    
+    @Environment(\.modelContext) private var modelContext
+    @Query private var wishes: [Wish]
+    
+    @State private var isAlertShowing: Bool = false
+    @State private var title: String = ""
+    
     var body: some View {
-        VStack {
-            Image(systemName: "globe")
-                .imageScale(.large)
-                .foregroundStyle(.tint)
-            Text("Hello, world!")
+        NavigationStack {
+            List {
+                ForEach(wishes) { wish in
+                    Text(wish.title)
+                        .font(.title.weight(.light))
+                        .padding(.vertical, 2)
+                        .swipeActions {
+                            Button("Delete", role: .destructive) {
+                                modelContext.delete(wish)
+                            }
+                        }
+                }
+            }
+            .navigationTitle("Wishlist")
+            .toolbarTitleDisplayMode(.inlineLarge)
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button {
+                        isAlertShowing.toggle()
+                    } label: {
+                        Image(systemName: "plus")
+                            .imageScale(.large)
+                    }
+                }
+                
+                if !wishes.isEmpty {
+                    ToolbarItem(placement: .bottomBar) {
+                        Text("\(wishes.count) wish\(wishes.count > 1 ? "es" : "")")
+                            .fixedSize(horizontal: true, vertical: false)
+                    }
+                }
+            }
+            .alert("Create a new wish", isPresented: $isAlertShowing) {
+                TextField("Enter a wish", text: $title)
+                
+                Button(role: .confirm) {
+                    modelContext.insert(Wish(title: title))
+                    title = ""
+                } label: {
+                    Text("Save")
+                }
+                .disabled(title.isEmpty)
+            }
+            .overlay {
+                if wishes.isEmpty {
+                    ContentUnavailableView("My Wishlist", systemImage: "heart.circle", description: Text("No wishes yet. Add one to get started."))
+                }
+            }
         }
-        .padding()
     }
 }
 
-#Preview {
+#Preview("List with Sample Data") {
+    let container = try! ModelContainer(for: Wish.self, configurations: ModelConfiguration(isStoredInMemoryOnly: true))
+    
+    container.mainContext.insert(Wish(title: "Master SwiftData"))
+    container.mainContext.insert(Wish(title: "Buy a new iPhone"))
+    container.mainContext.insert(Wish(title: "Travel to Europe"))
+    container.mainContext.insert(Wish(title: "Read a book"))
+    container.mainContext.insert(Wish(title: "Apply for a job"))
+    
+    return ContentView()
+        .modelContainer(container)
+}
+
+#Preview("Empty List") {
     ContentView()
+        .modelContainer(for: Wish.self, inMemory: true)
 }
